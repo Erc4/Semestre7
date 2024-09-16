@@ -2,7 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-class usuarios(db.Model):
+class classusuarios(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     apellidopaterno = db.Column(db.String(255), nullable=False)
     apellidomaterno = db.Column(db.String(255), nullable=False)
@@ -39,3 +39,24 @@ class usuarios(db.Model):
             'requerimentoagua': self.requerimentoagua,
             'objetivo': self.objetivo
         }
+    
+class classalimentos(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(255), nullable=False)
+    porcion = db.Column(db.Integer, nullable=False)
+    proteinas = db.Column(db.Float, nullable=False)
+    carbohidratos = db.Column(db.Float, nullable=False)
+    grasas = db.Column(db.Float, nullable=False)
+    calorias = db.Column(db.Float, nullable=False)
+
+    def to_dict(self):
+        return{
+            'id': self.id,
+            'nombre': self.nombre,
+            'porcion': self.porcion,
+            'proteinas': self.proteinas,
+            'carbohidratos': self.carbohidratos,
+            'grasas': self.grasas,
+            'calorias': self.calorias 
+        }
+
