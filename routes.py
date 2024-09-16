@@ -1,22 +1,22 @@
 from flask import Blueprint, jsonify, request
-from models import db, Paciente
+from models import db, usuarios
 
-pacientes_bp = Blueprint('pacientes', __name__)
+pacientes_bp = Blueprint('usuarios', __name__)
 
-@pacientes_bp.route('/pacientes', methods=['GET'])
+@pacientes_bp.route('/usuarios', methods=['GET'])
 def get_users():
-    users = Paciente.query.all()
+    users = usuarios.query.all()
     return jsonify([user.to_dict() for user in users])
 
-@pacientes_bp.route('/pacientes/<int:id>', methods=['GET'])
+@pacientes_bp.route('/usuarios/<int:id>', methods=['GET'])
 def get_user(id):
-    user = Paciente.query.get_or_404(id)
+    user = usuarios.query.get_or_404(id)
     return jsonify(user.to_dict())
 
-@pacientes_bp.route('/pacientes', methods=['POST'])
+@pacientes_bp.route('/usuarios', methods=['POST'])
 def create_user():
     data = request.json
-    new_user = Paciente(
+    new_user = usuarios(
         apellidopaterno=data['apellidopaterno'],
         apellidomaterno=data['apellidomaterno'],
         nombre=data['nombre'],
@@ -36,9 +36,9 @@ def create_user():
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
 
-@pacientes_bp.route('/pacientes/<int:id>', methods=['PUT'])
+@pacientes_bp.route('/usuarios/<int:id>', methods=['PUT'])
 def update_user(id):
-    user = Paciente.query.get_or_404(id)
+    user = usuarios.query.get_or_404(id)
     data = request.json
     user.apellidopaterno = data['apellidopaterno']
     user.apellidomaterno = data['apellidomaterno']
@@ -57,9 +57,9 @@ def update_user(id):
     db.session.commit()
     return jsonify(user.to_dict())
 
-@pacientes_bp.route('/pacientes/<int:id>', methods=['DELETE'])
+@pacientes_bp.route('/usuarios/<int:id>', methods=['DELETE'])
 def delete_user(id):
-    user = Paciente.query.get_or_404(id)
+    user = usuarios.query.get_or_404(id)
     db.session.delete(user)
     db.session.commit()
     return '', 204
