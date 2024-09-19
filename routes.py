@@ -73,7 +73,7 @@ def get_alimentos():
     return jsonify([alimento.to_dict() for alimento in alimentos])
 
 @alimentos_bp.route('/alimentos/<int:id>', methods=['GET'])
-def get_alimentos(id):
+def get_alimento(id):
     alimento = classalimentos.query.get_or_404(id)
     return jsonify(alimento.to_dict())
 
@@ -102,3 +102,12 @@ def update_alimento(id):
     alimento.carbohidratos = data['carbohidratos']
     alimento.grasas = data['grasas']
     alimento.calorias = data['calorias']
+    db.session.commit()
+    return jsonify(alimento.to_dict())
+    
+@alimentos_bp.route('/alimentos/<int:id>', methods = ['DELETE'])
+def delete_alimento(id):
+    alimento = classalimentos.query.get_or_404(id)
+    db.session.delete(alimento)
+    db.session.commit
+    return '',204
