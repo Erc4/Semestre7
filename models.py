@@ -10,7 +10,7 @@ class classusuarios(db.Model):
     rol = db.Column(db.Integer, nullable = False)
     usuario = db.Column (db.String(255), nullable=False)
     correo = db.Column(db.String(255), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     peso = db.Column(db.Float, nullable=False)
     estatura = db.Column(db.Integer, nullable=False)
     edad = db.Column(db.Integer, nullable=False)
