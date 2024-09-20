@@ -20,6 +20,12 @@ class classusuarios(db.Model):
     requerimentoagua = db.Column(db.Integer, nullable=False)
     objetivo = db.Column(db.String(255), nullable=False)
 
+    def set_password(self,password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self,password):
+        return check_password_hash(self.password_hash, password)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -29,7 +35,6 @@ class classusuarios(db.Model):
             'rol' : self.rol,
             'usuario': self.usuario,
             'correo': self.correo,
-            'password': self.password,
             'peso': self.peso,
             'estatura': self.estatura,
             'edad': self.edad,

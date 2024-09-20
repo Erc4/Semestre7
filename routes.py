@@ -20,9 +20,9 @@ def create_user():
         apellidopaterno=data['apellidopaterno'],
         apellidomaterno=data['apellidomaterno'],
         nombre=data['nombre'],
+        rol=data['rol'],
         usuario=data['usuario'],
         correo=data['correo'],
-        password=data['password'],
         peso=data['peso'],
         estatura=data['estatura'],
         edad=data['edad'],
@@ -32,6 +32,7 @@ def create_user():
         requerimentoagua=data['requerimentoagua'],
         objetivo=data['objetivo']
     )
+    new_user.set_password(data['password'])
     db.session.add(new_user)
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
@@ -64,6 +65,15 @@ def delete_user(id):
     db.session.commit()
     return '', 204
 
+@usuarios_bp.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user = classusuarios.query.filter_by(correo=data['correo']).first()
+
+    if user and user.check_password(data['password']):
+        return jsonify({"message": "Login exitoso"})
+    else:
+        return jsonify({"error": "Credenciales inválidas"}), 401
 
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
