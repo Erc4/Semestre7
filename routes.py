@@ -37,24 +37,30 @@ def create_user():
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
 
-@usuarios_bp.route('/usuarios/<int:id>', methods=['PUT'])
-def update_user(id):
+@usuarios_bp.route('/usuarios/<int:id>/personaldata', methods=['PUT'])
+def update_userpersonaldata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
     user.apellidopaterno = data['apellidopaterno']
     user.apellidomaterno = data['apellidomaterno']
     user.nombre = data['nombre']
-    user.usuario = data['usuario']
-    user.correo = data['correo']
-    user.password = data['password']
     user.peso = data['peso']
     user.estatura = data['estatura']
     user.edad = data['edad']
     user.actividad = data['actividad']
-    user.metabolismobasal = data['metabolismobasal']
-    user.imc = data['imc']
-    user.requerimentoagua = data['requerimentoagua']
     user.objetivo = data['objetivo']
+    db.session.commit()
+    return jsonify(user.to_dict())
+
+@usuarios_bp.route('/usuarios/<int:id>/accountdata', methods=['PUT'])
+def update_accountdata(id):
+    user = classusuarios.query.get_or_404(id)
+    data = request.json
+    user.usuario = data['usuario']
+    user.correo = data['correo']
+    user.rol = data['rol']
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
     db.session.commit()
     return jsonify(user.to_dict())
 
