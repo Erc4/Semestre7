@@ -1,8 +1,14 @@
-from flask import Blueprint, jsonify, request
+import jwt
+import datetime
+from flask import Blueprint, jsonify, request, current_app
 from models import db, classusuarios, classalimentos
+from werkzeug.security import check_password_hash
+
+usuarios_bp = Blueprint('usuarios', __name__)
+
 
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
-usuarios_bp = Blueprint('usuarios', __name__)
+
 @usuarios_bp.route('/usuarios', methods=['GET'])
 def get_users():
     users = classusuarios.query.all()
