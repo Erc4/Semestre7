@@ -3,10 +3,48 @@ import datetime
 from flask import Blueprint, jsonify, request, current_app
 from models import db, classusuarios, classalimentos
 from werkzeug.security import check_password_hash
+from functools import wraps
+
+
+#--------------------------------------------------Proteger rutas ------------------------------------------------------------
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        if 'Authorization' in request.headers:
+            token = request.headers['Autorization'].split(" ")[1]
+        
+        if not token:
+            return jsonify({'message': 'Necesitas un token'})
+        
+        try:
+            data=jwt.decode(token, current_app.config['SECRET KEY'],algorithms=['HS256'])
+            current_user= classusuarios.query.get(data['id'])
+        except:
+            return jsonify({'message': 'Token inválido o exprirado'})
+
+        return f(current_user, *args, **kwargs)
+    return decorated
+    
 
 usuarios_bp = Blueprint('usuarios', __name__)
+#--------------------------------------------------Rutas para login ------------------------------------------------------------
+@usuarios_bp.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user = classusuarios.query.filter_by(correo=data['correo']).first()
 
+    if user and check_password_hash(user.password_hash, data['password']):
+        token = jwt.encode({
+            'id': user.id,
+            'rol': user.rol,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        }, current_app.config['SECRET_KEY'], algorithm='HS256')
 
+        return jsonify ({'token':token}),200
+    else:
+        return jsonify ({'message': 'Credenciales invalidas'})
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
 
 @usuarios_bp.route('/usuarios', methods=['GET'])
@@ -59,6 +97,7 @@ def update_userpersonaldata(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios/<int:id>/accountdata', methods=['PUT'])
+#@token_required
 def update_accountdata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
@@ -76,17 +115,6 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     return '', 204
-
-@usuarios_bp.route('/login', methods=['POST'])
-def login():
-    data = request.json
-    user = classusuarios.query.filter_by(correo=data['correo']).first()
-
-    if user and user.check_password(data['password']):
-        return jsonify({"message": "Login exitoso"})
-    else:
-        return jsonify({"error": "Credenciales inválidas"}), 401
-
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
 @alimentos_bp.route('/alimentos', methods=['GET'])

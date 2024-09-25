@@ -4,6 +4,8 @@ from routes import usuarios_bp, alimentos_bp
 from config import Config
 
 app = Flask(__name__)
+
+app.config['SECRET_KEY'] = 'mysecretkey'  # Cambia 'mysecretkey' por una cadena más segura
 app.config.from_object(Config)
 
 
