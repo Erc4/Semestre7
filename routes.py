@@ -33,11 +33,13 @@ usuarios_bp = Blueprint('usuarios', __name__)
 @usuarios_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
-    user = classusuarios.query.filter_by(correo=data['correo']).first()
+    user = classusuarios.query.filter_by(usuario=data['usuario']).first()
 
     if user and check_password_hash(user.password_hash, data['password']):
         token = jwt.encode({
             'id': user.id,
+            'usuario':user.usuario,
+            'correo':user.correo,
             'rol': user.rol,
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, current_app.config['SECRET_KEY'], algorithm='HS256')
@@ -48,6 +50,7 @@ def login():
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
 
 @usuarios_bp.route('/usuarios', methods=['GET'])
+@token_required
 def get_users():
     users = classusuarios.query.all()
     return jsonify([user.to_dict() for user in users])
@@ -58,6 +61,7 @@ def get_user(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios', methods=['POST'])
+@token_required
 def create_user():
     data = request.json
     new_user = classusuarios(
@@ -82,6 +86,7 @@ def create_user():
     return jsonify(new_user.to_dict()), 201
 
 @usuarios_bp.route('/usuarios/<int:id>/personaldata', methods=['PUT'])
+@token_required
 def update_userpersonaldata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
@@ -97,7 +102,7 @@ def update_userpersonaldata(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios/<int:id>/accountdata', methods=['PUT'])
-#@token_required
+@token_required
 def update_accountdata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
@@ -110,6 +115,7 @@ def update_accountdata(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios/<int:id>', methods=['DELETE'])
+@token_required
 def delete_user(id):
     user = classusuarios.query.get_or_404(id)
     db.session.delete(user)
@@ -117,6 +123,7 @@ def delete_user(id):
     return '', 204
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
+@token_required
 @alimentos_bp.route('/alimentos', methods=['GET'])
 def get_alimentos():
     alimentos = classalimentos.query.all()
@@ -143,6 +150,7 @@ def crear_alimento():
     return jsonify(new_alimento.to_dict()), 201
 
 @alimentos_bp.route('/alimentos/<int:id>', methods = ['PUT'])
+@token_required
 def update_alimento(id):
     alimento = classalimentos.query.get_or_404(id)
     data = request.json()
@@ -156,6 +164,7 @@ def update_alimento(id):
     return jsonify(alimento.to_dict())
     
 @alimentos_bp.route('/alimentos/<int:id>', methods = ['DELETE'])
+@token_required
 def delete_alimento(id):
     alimento = classalimentos.query.get_or_404(id)
     db.session.delete(alimento)
