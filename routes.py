@@ -13,7 +13,7 @@ def token_required(f):
         token = None
 
         if 'Authorization' in request.headers:
-            token = request.headers['Autorization'].split(" ")[1]
+            token = request.headers['Authorization'].split(" ")[1]
         
         if not token:
             return jsonify({'message': 'Necesitas un token'})
@@ -50,7 +50,7 @@ def login():
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
 
 @usuarios_bp.route('/usuarios', methods=['GET'])
-@token_required
+#@token_required
 def get_users():
     users = classusuarios.query.all()
     return jsonify([user.to_dict() for user in users])
@@ -61,7 +61,7 @@ def get_user(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios', methods=['POST'])
-@token_required
+#@token_required
 def create_user():
     data = request.json
     new_user = classusuarios(
@@ -86,7 +86,7 @@ def create_user():
     return jsonify(new_user.to_dict()), 201
 
 @usuarios_bp.route('/usuarios/<int:id>/personaldata', methods=['PUT'])
-@token_required
+#@token_required
 def update_userpersonaldata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
@@ -102,7 +102,7 @@ def update_userpersonaldata(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios/<int:id>/accountdata', methods=['PUT'])
-@token_required
+#@token_required
 def update_accountdata(id):
     user = classusuarios.query.get_or_404(id)
     data = request.json
@@ -115,7 +115,7 @@ def update_accountdata(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios/<int:id>', methods=['DELETE'])
-@token_required
+#@token_required
 def delete_user(id):
     user = classusuarios.query.get_or_404(id)
     db.session.delete(user)
@@ -123,7 +123,7 @@ def delete_user(id):
     return '', 204
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
-@token_required
+#@token_required
 @alimentos_bp.route('/alimentos', methods=['GET'])
 def get_alimentos():
     alimentos = classalimentos.query.all()
@@ -150,7 +150,7 @@ def crear_alimento():
     return jsonify(new_alimento.to_dict()), 201
 
 @alimentos_bp.route('/alimentos/<int:id>', methods = ['PUT'])
-@token_required
+#@token_required
 def update_alimento(id):
     alimento = classalimentos.query.get_or_404(id)
     data = request.json()
@@ -164,7 +164,7 @@ def update_alimento(id):
     return jsonify(alimento.to_dict())
     
 @alimentos_bp.route('/alimentos/<int:id>', methods = ['DELETE'])
-@token_required
+#@token_required
 def delete_alimento(id):
     alimento = classalimentos.query.get_or_404(id)
     db.session.delete(alimento)
