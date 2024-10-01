@@ -11,21 +11,28 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-
+        
+        # Obtener el token de los encabezados
         if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(" ")[1]
-        
-        if not token:
-            return jsonify({'message': 'Necesitas un token'})
-        
-        try:
-            data=jwt.decode(token, current_app.config['SECRET KEY'],algorithms=['HS256'])
-            current_user= classusuarios.query.get(data['id'])
-        except:
-            return jsonify({'message': 'Token inválido o exprirado'})
+            token = request.headers['Authorization'].split(" ")[1]  # Extraer el token del formato Bearer
 
-        return f(current_user, *args, **kwargs)
+        if not token:
+            return jsonify({'message': 'Token no proporcionado'}), 401
+
+        try:
+            # Decodificar el token
+            data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user_id = data['id']
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token expirado'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token inválido'}), 401
+
+        # Llamar a la función decorada sin pasar el current_user_id
+        return f(*args, **kwargs)
+
     return decorated
+
     
 
 usuarios_bp = Blueprint('usuarios', __name__)
@@ -41,16 +48,28 @@ def login():
             'usuario':user.usuario,
             'correo':user.correo,
             'rol': user.rol,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+            #'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, current_app.config['SECRET_KEY'], algorithm='HS256')
 
         return jsonify ({'token':token}),200
     else:
         return jsonify ({'message': 'Credenciales invalidas'})
+    
+##--------------------------------------------------Validar token -----------------------------------------------------------------
+@usuarios_bp.route('/validar-token', methods=['GET'])
+@token_required
+def validar_token(current_user):
+    return jsonify({
+        'message': 'Token válido',
+        'usuario': current_user.usuario,
+        'rol': current_user.rol
+    }), 200
+
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
 
+
 @usuarios_bp.route('/usuarios', methods=['GET'])
-#@token_required
+@token_required
 def get_users():
     users = classusuarios.query.all()
     return jsonify([user.to_dict() for user in users])
@@ -61,7 +80,7 @@ def get_user(id):
     return jsonify(user.to_dict())
 
 @usuarios_bp.route('/usuarios', methods=['POST'])
-#@token_required
+@token_required
 def create_user():
 
     data = request.json

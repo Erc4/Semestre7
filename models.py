@@ -5,6 +5,22 @@ from datetime import datetime
 db = SQLAlchemy()
 
 
+class RegistroComidas(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('classusuarios.id'), nullable=False)
+    alimento_id = db.Column(db.Integer, db.ForeignKey('classalimentos.id'), nullable=False)
+    fecha = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    cantidad = db.Column(db.Float, nullable=False)  # cantidad consumida en porciones o gramos
+    
+    def to_dict(self):
+        return{
+            'id': self.id,
+            'usuario_id': self.usuario_id,
+            'alimento_id':self.alimento_id,
+            'fecha':self.fecha,
+            'cantidad':self.cantidad
+        }
+
 class classalimentos(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(255), nullable=False)
