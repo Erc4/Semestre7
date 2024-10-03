@@ -9,7 +9,7 @@ class RegistroComidas(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('classusuarios.id'), nullable=False)
     alimento_id = db.Column(db.Integer, db.ForeignKey('classalimentos.id'), nullable=False)
-    fecha = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    fecha = db.Column(db.Date, nullable=False, default=datetime.date.today)
     cantidad = db.Column(db.Float, nullable=False)  # cantidad consumida en porciones o gramos
     
     def to_dict(self):

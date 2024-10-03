@@ -22,18 +22,18 @@ def token_required(f):
         try:
             # Decodificar el token
             data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user_id = data['id']
+            current_user = classusuarios.query.filter_by(id=data['id']).first()
+
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token expirado'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Token inválido'}), 401
 
         # Llamar a la función decorada sin pasar el current_user_id
-        return f(*args, **kwargs)
+        return f(current_user, *args, **kwargs)
 
     return decorated
 
-    
 
 usuarios_bp = Blueprint('usuarios', __name__)
 #--------------------------------------------------Rutas para login ------------------------------------------------------------
@@ -48,31 +48,34 @@ def login():
             'usuario':user.usuario,
             'correo':user.correo,
             'rol': user.rol,
-            #'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, current_app.config['SECRET_KEY'], algorithm='HS256')
 
         return jsonify ({'token':token}),200
     else:
         return jsonify ({'message': 'Credenciales invalidas'})
     
-##--------------------------------------------------Validar token -----------------------------------------------------------------
+#--------------------------------------------------Validar token -----------------------------------------------------------------
 @usuarios_bp.route('/validar-token', methods=['GET'])
 @token_required
 def validar_token(current_user):
     return jsonify({
         'message': 'Token válido',
         'usuario': current_user.usuario,
-        'rol': current_user.rol
+        'rol': current_user.rol,
+        'id': current_user.id
     }), 200
 
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
 
-
 @usuarios_bp.route('/usuarios', methods=['GET'])
 @token_required
-def get_users():
+def get_users(current_user):
+    if current_user.rol != 2:
+        return jsonify({'message': 'No tienes permiso para acceder a esta ruta'}), 403
+    
     users = classusuarios.query.all()
-    return jsonify([user.to_dict() for user in users])
+    return jsonify([user.to_dict() for user in users]), 200
 
 @usuarios_bp.route('/usuarios/<int:id>', methods=['GET'])
 def get_user(id):
@@ -81,7 +84,9 @@ def get_user(id):
 
 @usuarios_bp.route('/usuarios', methods=['POST'])
 @token_required
-def create_user():
+def create_user(current_user):
+    if current_user.rol != 2:
+        return jsonify({"message": "No tienes permiso para acceder a esta ruta"}), 403
 
     data = request.json
     if not data:  # Verifica que se recibió datos
@@ -118,8 +123,6 @@ def create_user():
     elif data['objetivo'] == 'disminuir':
         requerimientocalorico = metabolismobasal * fap * 1.85
 
-    
-    
     new_user = classusuarios(
         apellidopaterno=data['apellidopaterno'],
         apellidomaterno=data['apellidomaterno'],
@@ -221,6 +224,7 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     return '', 204
+
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
 #@token_required
@@ -264,6 +268,7 @@ def update_alimento(id):
     db.session.commit()
     return jsonify(alimento.to_dict())
     
+    
 @alimentos_bp.route('/alimentos/<int:id>', methods = ['DELETE'])
 #@token_required
 def delete_alimento(id):
@@ -271,3 +276,7 @@ def delete_alimento(id):
     db.session.delete(alimento)
     db.session.commit
     return '',204
+
+
+#--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
+
