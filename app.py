@@ -1,6 +1,6 @@
 from flask import Flask
 from models import db
-from routes import usuarios_bp, alimentos_bp
+from routes import usuarios_bp, alimentos_bp, registro_comidas_bp
 from config import Config
 
 app = Flask(__name__)
@@ -16,6 +16,7 @@ with app.app_context():
 
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(alimentos_bp)
+app.register_blueprint(registro_comidas_bp)
 
 if __name__ == '__main__':
     app.run(debug=True)

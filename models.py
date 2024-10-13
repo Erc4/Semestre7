@@ -11,6 +11,7 @@ class RegistroComidas(db.Model):
     alimento_id = db.Column(db.Integer, db.ForeignKey('classalimentos.id'), nullable=False)
     fecha = db.Column(db.Date, nullable=False, default=date.today)
     cantidad = db.Column(db.Float, nullable=False)  # cantidad consumida en porciones o gramos
+    numero_comida = db.Column(db.Integer, nullable=False)  # Nuevo campo para indicar el número de comida
     
     def to_dict(self):
         return{

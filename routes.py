@@ -1,10 +1,10 @@
 import jwt
 import datetime
 from flask import Blueprint, jsonify, request, current_app
-from models import db, classusuarios, classalimentos
+from models import db, classusuarios, classalimentos, RegistroComidas
 from werkzeug.security import check_password_hash
 from functools import wraps
-
+from sqlalchemy import func
 
 #--------------------------------------------------Proteger rutas ------------------------------------------------------------
 def token_required(f):
@@ -279,4 +279,97 @@ def delete_alimento(id):
 
 
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
+registro_comidas_bp = Blueprint('registro_comidas', __name__)
 
+@registro_comidas_bp.route('/registrar-comida', methods=['POST'])
+@token_required
+def registrar_comida(current_user):
+    data = request.json
+    
+    nuevo_registro = RegistroComidas(
+        usuario_id=current_user.id,
+        alimento_id=data['alimento_id'],
+        fecha=datetime.datetime.strptime(data['fecha'], '%Y-%m-%d').date(),
+        cantidad=data['cantidad'],
+        numero_comida=data['numero_comida']
+    )
+    
+    db.session.add(nuevo_registro)
+    db.session.commit()
+    
+    return jsonify(nuevo_registro.to_dict()), 201
+
+@registro_comidas_bp.route('/comidas-diarias/<string:fecha>', methods=['GET'])
+@token_required
+def obtener_comidas_diarias(current_user, fecha):
+    fecha_obj = datetime.datetime.strptime(fecha, '%Y-%m-%d').date()
+    
+    comidas = RegistroComidas.query.filter_by(
+        usuario_id=current_user.id,
+        fecha=fecha_obj
+    ).all()
+    
+    return jsonify([comida.to_dict() for comida in comidas]), 200
+
+@registro_comidas_bp.route('/macronutrientes-diarios/<string:fecha>', methods=['GET'])
+@token_required
+def obtener_macronutrientes_diarios(current_user, fecha):
+    fecha_obj = datetime.datetime.strptime(fecha, '%Y-%m-%d').date()
+    
+    resultados = db.session.query(
+        func.sum(classalimentos.proteinas * RegistroComidas.cantidad).label('proteinas_totales'),
+        func.sum(classalimentos.carbohidratos * RegistroComidas.cantidad).label('carbohidratos_totales'),
+        func.sum(classalimentos.grasas * RegistroComidas.cantidad).label('grasas_totales'),
+        func.sum(classalimentos.calorias * RegistroComidas.cantidad).label('calorias_totales')
+    ).join(
+        RegistroComidas, classalimentos.id == RegistroComidas.alimento_id
+    ).filter(
+        RegistroComidas.usuario_id == current_user.id,
+        RegistroComidas.fecha == fecha_obj
+    ).first()
+    
+    return jsonify({
+        'proteinas_totales': round(float(resultados.proteinas_totales or 0), 2),
+        'carbohidratos_totales': round(float(resultados.carbohidratos_totales or 0), 2),
+        'grasas_totales': round(float(resultados.grasas_totales or 0), 2),
+        'calorias_totales': round(float(resultados.calorias_totales or 0), 2)
+    }), 200
+
+@registro_comidas_bp.route('/actualizar-comida/<int:registro_id>', methods=['PUT'])
+@token_required
+def actualizar_comida(current_user, registro_id):
+    registro = RegistroComidas.query.get_or_404(registro_id)
+    
+    # Verificar que el registro pertenece al usuario actual
+    if registro.usuario_id != current_user.id:
+        return jsonify({'message': 'No tienes permiso para modificar este registro'}), 403
+    
+    data = request.json
+    
+    # Actualizar los campos del registro
+    if 'alimento_id' in data:
+        registro.alimento_id = data['alimento_id']
+    if 'fecha' in data:
+        registro.fecha = datetime.datetime.strptime(data['fecha'], '%Y-%m-%d').date()
+    if 'cantidad' in data:
+        registro.cantidad = data['cantidad']
+    if 'numero_comida' in data:
+        registro.numero_comida = data['numero_comida']
+    
+    db.session.commit()
+    
+    return jsonify(registro.to_dict()), 200
+
+@registro_comidas_bp.route('/eliminar-comida/<int:registro_id>', methods=['DELETE'])
+@token_required
+def eliminar_comida(current_user, registro_id):
+    registro = RegistroComidas.query.get_or_404(registro_id)
+    
+    # Verificar que el registro pertenece al usuario actual
+    if registro.usuario_id != current_user.id:
+        return jsonify({'message': 'No tienes permiso para eliminar este registro'}), 403
+    
+    db.session.delete(registro)
+    db.session.commit()
+    
+    return jsonify({'message': 'Registro eliminado correctamente'}), 200
