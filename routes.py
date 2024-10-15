@@ -316,7 +316,67 @@ def obtener_comidas_diarias(current_user, fecha):
     ).all()
     
     return jsonify([comida.to_dict() for comida in comidas]), 200
+@registro_comidas_bp.route('/resumen-diario/<string:fecha>', methods=['GET'])
+@token_required
+def resumen_diario(current_user, fecha):
+    fecha_obj = datetime.datetime.strptime(fecha, '%Y-%m-%d').date()
+    
+    # Consulta para obtener el desglose por alimento
+    desglose = db.session.query(
+        RegistroComidas.id,
+        RegistroComidas.numero_comida,
+        classalimentos.nombre,
+        RegistroComidas.cantidad,
+        (classalimentos.proteinas * RegistroComidas.cantidad).label('proteinas'),
+        (classalimentos.carbohidratos * RegistroComidas.cantidad).label('carbohidratos'),
+        (classalimentos.grasas * RegistroComidas.cantidad).label('grasas'),
+        (classalimentos.calorias * RegistroComidas.cantidad).label('calorias')
+    ).join(
+        classalimentos, RegistroComidas.alimento_id == classalimentos.id
+    ).filter(
+        RegistroComidas.usuario_id == current_user.id,
+        RegistroComidas.fecha == fecha_obj
+    ).order_by(RegistroComidas.numero_comida).all()
+    
+    # Consulta para obtener los totales del día
+    totales = db.session.query(
+        func.sum(classalimentos.proteinas * RegistroComidas.cantidad).label('proteinas_totales'),
+        func.sum(classalimentos.carbohidratos * RegistroComidas.cantidad).label('carbohidratos_totales'),
+        func.sum(classalimentos.grasas * RegistroComidas.cantidad).label('grasas_totales'),
+        func.sum(classalimentos.calorias * RegistroComidas.cantidad).label('calorias_totales')
+    ).join(
+        RegistroComidas, classalimentos.id == RegistroComidas.alimento_id
+    ).filter(
+        RegistroComidas.usuario_id == current_user.id,
+        RegistroComidas.fecha == fecha_obj
+    ).first()
+    
+    # Preparar el resumen
+    resumen = {
+        'fecha': fecha,
+        'desglose_por_alimento': [
+            {
+                'id': r.id,
+                'numero_comida': r.numero_comida,
+                'alimento': r.nombre,
+                'cantidad': round(r.cantidad, 2),
+                'proteinas': round(r.proteinas, 2),
+                'carbohidratos': round(r.carbohidratos, 2),
+                'grasas': round(r.grasas, 2),
+                'calorias': round(r.calorias, 2)
+            } for r in desglose
+        ],
+        'totales_del_dia': {
+            'proteinas_totales': round(float(totales.proteinas_totales or 0), 2),
+            'carbohidratos_totales': round(float(totales.carbohidratos_totales or 0), 2),
+            'grasas_totales': round(float(totales.grasas_totales or 0), 2),
+            'calorias_totales': round(float(totales.calorias_totales or 0), 2)
+        }
+    }
+    
+    return jsonify(resumen), 200
 
+# ... (resto del código existente)
 @registro_comidas_bp.route('/macronutrientes-diarios/<string:fecha>', methods=['GET'])
 @token_required
 def obtener_macronutrientes_diarios(current_user, fecha):
@@ -384,3 +444,4 @@ def eliminar_comida(current_user, registro_id):
     db.session.commit()
     
     return jsonify({'message': 'Registro eliminado correctamente'}), 200
+
