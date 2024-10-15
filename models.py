@@ -63,6 +63,7 @@ class classusuarios(db.Model):
     requerimentoagua = db.Column(db.Integer, nullable=False)
     requerimientocalorico = db.Column(db.Integer, nullable=False)
     objetivo = db.Column(db.String(255), nullable=False)
+    cantidad_comidas = db.Column(db.Integer, nullable=False, default=3)
 
 
     def set_password(self,password):
@@ -89,6 +90,7 @@ class classusuarios(db.Model):
             'imc': self.imc,
             'requerimentoagua': self.requerimentoagua,
             'requerimientocalorico': self.requerimientocalorico,
-            'objetivo': self.objetivo
+            'objetivo': self.objetivo,
+            'cantidad_comidas':self.cantidad_comidas
         }
     

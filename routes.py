@@ -139,7 +139,8 @@ def create_user(current_user):
         imc=imc,
         requerimentoagua=requerimientoagua,
         requerimientocalorico = requerimientocalorico,
-        objetivo=data['objetivo']
+        objetivo=data['objetivo'],
+        cantidad_comidas=data['cantidad_comidas']
     )
     new_user.set_password(data['password'])
     db.session.add(new_user)
@@ -164,6 +165,7 @@ def update_userpersonaldata(id):
     user.sexo=data['sexo']
     user.actividad = data['actividad']
     user.objetivo = data['objetivo']
+    user.cantidad_comidas = data['cantidad_comidas']
 
     # Recalcular IMC
     altura_metros = user.estatura / 100  # Convertir altura a metros
@@ -285,6 +287,10 @@ registro_comidas_bp = Blueprint('registro_comidas', __name__)
 @token_required
 def registrar_comida(current_user):
     data = request.json
+
+    # Validar que el número de comida es válido
+    if data['numero_comida'] < 1 or data['numero_comida'] > current_user.cantidad_comidas:
+        return jsonify({'message': f'Número de comida inválido. Debe estar entre 1 y {current_user.cantidad_comidas}'}), 400
     
     nuevo_registro = RegistroComidas(
         usuario_id=current_user.id,
@@ -345,6 +351,11 @@ def actualizar_comida(current_user, registro_id):
         return jsonify({'message': 'No tienes permiso para modificar este registro'}), 403
     
     data = request.json
+
+    if 'numero_comida' in data:
+        if data['numero_comida'] < 1 or data['numero_comida'] > current_user.cantidad_comidas:
+            return jsonify({'message': f'Número de comida inválido. Debe estar entre 1 y {current_user.cantidad_comidas}'}), 400
+        registro.numero_comida = data['numero_comida']
     
     # Actualizar los campos del registro
     if 'alimento_id' in data:
