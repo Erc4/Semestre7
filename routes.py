@@ -1,11 +1,15 @@
 import jwt
 import datetime
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, url_for
 from models import db, classusuarios, classalimentos, RegistroComidas
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 from sqlalchemy import func
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from flask_mail import Mail, Message
+from sqlalchemy import func
 
+mail = Mail()
 #--------------------------------------------------Proteger rutas ------------------------------------------------------------
 def token_required(f):
     @wraps(f)
@@ -34,10 +38,11 @@ def token_required(f):
 
     return decorated
 
-
-usuarios_bp = Blueprint('usuarios', __name__)
+#--------------------------------------------------Rutas de autorización--------------------------------------------------
+auth_bp = Blueprint('auth', __name__)
 #--------------------------------------------------Rutas para login ------------------------------------------------------------
-@usuarios_bp.route('/login', methods=['POST'])
+usuarios_bp = Blueprint('usuarios', __name__)
+@auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
     user = classusuarios.query.filter_by(usuario=data['usuario']).first()
@@ -55,6 +60,114 @@ def login():
     else:
         return jsonify ({'message': 'Credenciales invalidas'})
     
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    data = request.json
+
+    if classusuarios.query.filter_by(usuario=data['usuario']).first():
+        return jsonify ({'message': 'El nombre de usuario ya está en uso'}), 400
+    if classusuarios.query.filter_by(usuarios=data['correo']).first():
+        return jsonify ({'message': 'El correo ya está en uso'}), 400
+    
+    new_user = classusuarios(
+        apellidopaterno = data['apellidopaterno'],
+        apellidomaterno = data['apellidomaterno'],
+        nombre=data['nombre'],
+        rol=data['rol'],
+        usuario = data['usuario'],
+        correo = data['correo']
+    )
+    new_user.set_password(data['password'])
+
+    db.session.add(new_user)
+    db.session.commit
+
+    return jsonify ({'message': 'Usuario registrado exitosamente'}), 201
+
+@auth_bp.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    data=request.json
+    user=classusuarios.query.filter_by(correo=data["correo"]).first()
+    if not user:
+        return jsonify ({'message': 'No se encontró un usuario con ese correo electrónico'}), 404
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    token = s.dumps(user.correo, salt='password-reset-salt')
+
+    reset_url = url_for('auth.reset_password', token=token, _external=True)
+    msg = Message ('Recuperación de contraseña',
+                recipients=[user.correo])
+    msg.body = f'Para restablecer tu contraseña, visita el siguiente link: {reset_url}'
+    mail = Mail(current_app)
+    mail.send(msg)
+
+    return jsonify ({'message' : 'Se ha enviado un correo con instrucciones para restablecer tu contraseña'})
+    
+@auth_bp.route('/reset_password/<token>', methods = ['POST'])
+def reset_password(token):
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)
+    except SignatureExpired:
+        return jsonify ({'message': 'token expirado'}), 400
+    except BadSignature:
+        return jsonify ({'message': 'token inválido'}), 400
+
+    user= classusuarios.query.filter_by(correo=email).first()
+    if not user:
+        return jsonify ({'message': 'Usuario no encontrado'}), 404
+    
+    data=request.json
+    if not 'new_password' or not 'confirm_password' in data:
+        return jsonify({'message': 'Ambas contraseñas son requeridas'}), 400
+    
+    if data['new_password'] != data['confirm_password']:
+                return jsonify({'message': 'Las contraseñas no coinciden'}), 400
+
+    user.password_hash =  generate_password_hash(data['new_password'])
+    db.session.commit()
+    return jsonify ({'message' : 'Contraseña actualizada exitosamente'}), 200
+
+personal_info_bp = Blueprint('personal_info_bp', __name__)
+@personal_info_bp.route('/update', methods =['POST'])
+@token_required
+def update_personal_info(current_user):
+    data=request.json
+    current_user.peso=data['peso']
+    current_user.estatura = data['estatura']
+    current_user.edad = data['edad']
+    current_user.sexo = data['sexo']
+    current_user.actividad = data['actividad']
+    current_user.objetivo = data['objetivo']
+    current_user.cantidad_comidas = data['cantidad_comidas']
+
+    altura_metros = current_user.estatura / 100
+    current_user.imc = current_user.peso / (altura_metros ** 2)
+
+    if current_user.sexo.lower() == 'm':
+        current_user.metabolismobasal = 88.362 + (13.397 * current_user.peso) + (4.799 * current_user.estatura) - (5.677 * current_user.edad)
+    else:
+        current_user.metabolismobasal = 447.593 + (9.247 * current_user.peso) + (3.098 * current_user.estatura) - (4.330 * current_user.edad)
+
+    current_user.requerimentoagua = current_user.peso * 35
+
+    actividad_factor = {
+        "baja": 1.2,
+        "moderada": 1.55,
+        "alta": 1.9
+    }.get(current_user.actividad.lower(), 1.2)
+
+    if current_user.objetivo == 'mantener':
+        current_user.requerimientocalorico = current_user.metabolismobasal * actividad_factor
+    elif current_user.objetivo == 'aumentar':
+        current_user.requerimientocalorico = current_user.metabolismobasal * actividad_factor * 1.15
+    elif current_user.objetivo == 'disminuir':
+        current_user.requerimientocalorico = current_user.metabolismobasal * actividad_factor * 0.85
+    else:
+        return jsonify({"error": "Objetivo no válido"}), 400
+
+    db.session.commit()
+
+    return jsonify({'message': 'Información personal actualizada exitosamente'}), 200
 #--------------------------------------------------Validar token -----------------------------------------------------------------
 @usuarios_bp.route('/validar-token', methods=['GET'])
 @token_required
@@ -67,6 +180,7 @@ def validar_token(current_user):
     }), 200
 
 #--------------------------------------------------Rutas para gestión de usuarios.--------------------------------------------------
+"""
 
 @usuarios_bp.route('/usuarios', methods=['GET'])
 @token_required
@@ -226,7 +340,7 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     return '', 204
-
+"""
 #--------------------------------------------------Rutas para gestión de alimentos.--------------------------------------------------
 alimentos_bp = Blueprint('alimentos' ,__name__)
 #@token_required
@@ -444,4 +558,5 @@ def eliminar_comida(current_user, registro_id):
     db.session.commit()
     
     return jsonify({'message': 'Registro eliminado correctamente'}), 200
+
 
