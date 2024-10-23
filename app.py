@@ -3,6 +3,8 @@ from models import db
 from routes import usuarios_bp, alimentos_bp, registro_comidas_bp, auth_bp, personal_info_bp
 from config import Config
 from flask_mail import Mail
+from flask_migrate import Migrate
+
 
 app = Flask(__name__)
 
@@ -11,6 +13,8 @@ app.config.from_object(Config)
 
 db.init_app(app)
 mail = Mail(app)
+
+migrate = Migrate(app, db)
 
 with app.app_context():
     db.create_all()

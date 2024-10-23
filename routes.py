@@ -47,26 +47,35 @@ def login():
     data = request.json
     user = classusuarios.query.filter_by(usuario=data['usuario']).first()
 
-    if user and check_password_hash(user.password_hash, data['password']):
-        token = jwt.encode({
-            'id': user.id,
-            'usuario':user.usuario,
-            'correo':user.correo,
-            'rol': user.rol,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        }, current_app.config['SECRET_KEY'], algorithm='HS256')
+    if not user.verificado:
+        return jsonify ({'message' : 'Por favor verifica tu cuenta antes de iniciar sesión'}), 403
+    
+    elif not user or not user.check_password(data['password']):
+        return jsonify ({'message' : 'Credenciales inválidas'}), 401
+    
+    #if user and check_password_hash(user.password_hash, data['password']):
+    token = jwt.encode({
+        'id': user.id,
+        'usuario':user.usuario,
+        'correo':user.correo,
+        'rol': user.rol,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }, current_app.config['SECRET_KEY'], algorithm='HS256')
 
-        return jsonify ({'token':token}),200
-    else:
-        return jsonify ({'message': 'Credenciales invalidas'})
+    return jsonify ({'token':token}),200
+    #else:
+        #return jsonify ({'message': 'Credenciales invalidas'})
     
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.json
+    if classusuarios.query.filter_by(correo=data['correo']).first():
+        return jsonify({'message': 'El correo ya está en uso'}), 400
 
-    if classusuarios.query.filter_by(usuario=data['usuario']).first():
+    elif classusuarios.query.filter_by(usuario=data['usuario']).first():
         return jsonify ({'message': 'El nombre de usuario ya está en uso'}), 400
-    if classusuarios.query.filter_by(usuarios=data['correo']).first():
+    
+    elif classusuarios.query.filter_by(usuario=data['correo']).first():
         return jsonify ({'message': 'El correo ya está en uso'}), 400
     
     new_user = classusuarios(
@@ -75,14 +84,43 @@ def register():
         nombre=data['nombre'],
         rol=data['rol'],
         usuario = data['usuario'],
-        correo = data['correo']
+        correo = data['correo'],
+        verificado=False
     )
     new_user.set_password(data['password'])
 
     db.session.add(new_user)
-    db.session.commit
+    db.session.commit()
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    token = s.dumps(new_user.correo, salt='email-verification-salt')
+    verify_url = url_for('auth.verify_account', token=token, _external=True)
 
-    return jsonify ({'message': 'Usuario registrado exitosamente'}), 201
+    msg = Message('Verificación de cuenta',
+                recipients=[new_user.correo])
+    msg.body = f'Para verificar tu cuenta, haz click en el siguiente enlace: {verify_url}'
+    mail = Mail(current_app)
+    mail.send(msg)
+
+    return jsonify ({'message': 'Usuario registrado. Verifica tu correo para activar la cuenta  '}), 201
+
+@auth_bp.route('/verify_account<token>', methods = ['GET'])
+def verify_account(token):
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        email=s.loads(token, salt='email-verification-salt', max_age=3600)
+    except SignatureExpired:
+        return jsonify ({'message' : 'El enlace ha expirado'}), 400
+    except BadSignature:
+        return jsonify ({'message' : 'El enlace es inválido'}), 400
+    
+    user = classusuarios.query.filter_by(correo=email).first()
+    if not user:
+        return jsonify ({'message' : 'Usuario no encontrado'})
+    
+    user.verificado = True
+    db.session.commit()
+
+    return jsonify({'message': 'Cuenta verificada exitosamente.'}), 200
 
 @auth_bp.route('/forgot_password', methods=['POST'])
 def forgot_password():
